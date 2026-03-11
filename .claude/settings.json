@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import chess; print\\(chess.__version__\\)\")",
+      "WebFetch(domain:chessenginelab.substack.com)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/app.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/dashboard.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/narrative.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/interactive.js)",
+      "Bash(wc -l /Users/sachit/Desktop/projects/chessEngine/static/*.js /Users/sachit/Desktop/projects/chessEngine/static/*.html)"
+    ]
+  }
+}

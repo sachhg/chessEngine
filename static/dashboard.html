@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDSO — Simulation Dashboard</title>
+    <link rel="stylesheet" href="/dashboard.css">
+    <link rel="stylesheet"
+          href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <h1>PDSO<span class="subtitle">Simulation Dashboard</span></h1>
+            <p class="tagline">Adaptive opponent modeling via dynamic UCI parameter tuning</p>
+        </div>
+        <a href="/" class="nav-link">&larr; Read the writeup</a>
+    </header>
+
+    <main>
+        <!-- Controls -->
+        <section id="controls">
+            <div class="control-group">
+                <label for="pgn-file">Upload PGN</label>
+                <input type="file" id="pgn-file" accept=".pgn">
+                <input type="text" id="player-name" placeholder="Player name (e.g. Tal)">
+                <button id="btn-profile" disabled>Analyze</button>
+            </div>
+            <div class="control-group">
+                <label>Simulation</label>
+                <select id="sim-archetype">
+                    <option value="">All archetypes</option>
+                    <option value="aggressive">Aggressive</option>
+                    <option value="materialistic">Materialistic</option>
+                    <option value="positional">Positional</option>
+                    <option value="tactical">Tactical</option>
+                    <option value="passive">Passive</option>
+                </select>
+                <input type="number" id="sim-games" value="5" min="2" max="50" title="Games per matchup">
+                <button id="btn-simulate">Run Simulation</button>
+                <button id="btn-demo">Demo Mode</button>
+            </div>
+        </section>
+
+        <!-- Two-column layout -->
+        <div class="grid-2col">
+            <!-- Left: Profile -->
+            <section id="profile-panel" class="panel">
+                <h2>Opponent Profile</h2>
+                <div id="profile-empty" class="empty-state">
+                    Upload a PGN file or load demo results
+                </div>
+                <div id="profile-content" class="hidden">
+                    <div class="archetype-badge" id="archetype-label"></div>
+                    <div class="profile-meta" id="profile-meta"></div>
+                    <canvas id="radar-chart" width="320" height="320"></canvas>
+                    <table id="feature-table">
+                        <thead><tr><th>Feature</th><th>Value</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Right: Live game -->
+            <section id="game-panel" class="panel">
+                <h2>Live Game <span id="game-label" class="muted"></span></h2>
+                <div id="game-empty" class="empty-state">
+                    Run a simulation to watch games live
+                </div>
+                <div id="game-content" class="hidden">
+                    <div id="board-wrapper">
+                        <div id="board" style="width: 360px;"></div>
+                    </div>
+                    <div id="game-info">
+                        <div class="info-row">
+                            <span class="label">Eval</span>
+                            <div id="eval-bar">
+                                <div id="eval-fill"></div>
+                                <span id="eval-text">0.0</span>
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Phase</span>
+                            <span id="phase-text">&mdash;</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Move</span>
+                            <span id="move-counter">0</span>
+                        </div>
+                        <div id="move-list"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Results -->
+        <section id="results-panel" class="panel full-width">
+            <h2>Simulation Results</h2>
+            <div id="results-empty" class="empty-state">
+                No results yet
+            </div>
+            <div id="results-content" class="hidden">
+                <div id="progress-bar-container" class="hidden">
+                    <div id="progress-bar"><div id="progress-fill"></div></div>
+                    <span id="progress-text"></span>
+                </div>
+                <div class="results-grid">
+                    <div class="chart-container">
+                        <canvas id="results-chart" height="300"></canvas>
+                    </div>
+                    <div>
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Archetype</th>
+                                    <th>Adaptive Score</th>
+                                    <th>Baseline Score</th>
+                                    <th>Delta</th>
+                                    <th>Est. Elo Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <div id="summary-text"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>PDSO Research Framework — Built with Stockfish, python-chess, FastAPI</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>

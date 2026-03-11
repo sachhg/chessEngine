@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDSO — Persona-Driven Search Optimization</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+</head>
+<body>
+
+  <!-- Reading progress -->
+  <div id="reading-progress-container"><div id="reading-progress"></div></div>
+
+  <!-- TOC sidebar -->
+  <nav class="toc-sidebar" id="toc"></nav>
+
+  <!-- ===== SECTION 0: HERO ===== -->
+  <section id="hero" class="narrative-section hero-section">
+    <canvas id="hero-bg-canvas"></canvas>
+    <div class="hero-content">
+      <h1 class="hero-title">PDSO</h1>
+      <p class="hero-subtitle">Persona-Driven Search Optimization</p>
+      <p class="hero-tagline">How I built a chess engine that learns to exploit your weaknesses</p>
+      <div class="hero-nav">
+        <a href="/dashboard" class="hero-btn">Go to Dashboard &rarr;</a>
+      </div>
+      <div class="scroll-indicator">
+        <span>Scroll to begin</span>
+        <div class="scroll-arrow"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 1: THE PROBLEM ===== -->
+  <section id="sec-problem" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 1</span>
+      <h2>The Problem</h2>
+      <div class="prose">
+        <p>I started this project with a simple observation: the best chess engines in the world play the same way against everyone. Stockfish doesn't care if it's facing a grandmaster who loves quiet positional games or a club player who throws pieces at your king. It always plays the objectively best move.</p>
+        <p>But humans are not objective. We have habits, tendencies, blind spots. A player who always grabs material will fall for a poisoned pawn. A player who avoids complications will crumble under sustained pressure. A player who loves sharp tactical battles will struggle in a dull endgame with no targets.</p>
+        <p>What if an engine could learn those patterns and turn them against you?</p>
+        <p>That's the question behind PDSO. Instead of playing the single "best" move in every position, the engine profiles its opponent's style and picks moves that specifically exploit their weaknesses. Against an aggressive player, it plays solid and lets them overextend. Against a passive player, it cranks up the pressure. Against someone who grabs every pawn, it offers poisoned material.</p>
+        <p>Before I could build that, though, I needed to understand how chess engines actually work — from the ground up.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 2: EVALUATION BASICS ===== -->
+  <section id="sec-evaluation" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 2</span>
+      <h2>How Chess Engines Think</h2>
+      <div class="prose">
+        <p>At the most basic level, a chess engine needs to answer one question: <em>how good is this position?</em> The simplest approach is material counting. Every piece has a standard value, measured in "centipawns" — hundredths of a pawn:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>archetypes.py : 84-85</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">PIECE_VALUES = {1: 100, 2: 320, 3: 330, 4: 500, 5: 900, 6: 0}
+# pawn, knight, bishop, rook, queen, king</code></pre>
+      </div>
+
+      <div class="prose">
+        <p>A pawn is worth 100 centipawns. A knight is 320, a bishop 330, a rook 500, a queen 900. The king has no value because losing it means losing the game. Add up your pieces, subtract your opponent's, and you have a rough evaluation: +300 means you're up about a minor piece.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-piece-values">
+        <div class="demo-label">Piece Value Calculator</div>
+        <p class="demo-description">Remove pieces from the board to see how the material balance shifts. Drag pieces off the edge to remove them.</p>
+        <div class="demo-row">
+          <div id="eval-board" style="width: 280px;"></div>
+          <div class="eval-readout">
+            <div class="material-count">
+              <div class="mat-row"><span class="mat-label">White</span><span id="white-material" class="mat-value">3900</span><span class="mat-unit">cp</span></div>
+              <div class="mat-row"><span class="mat-label">Black</span><span id="black-material" class="mat-value">3900</span><span class="mat-unit">cp</span></div>
+            </div>
+            <div class="demo-eval-bar-wrap">
+              <span class="mat-label">Eval</span>
+              <div class="demo-eval-bar">
+                <div id="demo-eval-fill"></div>
+              </div>
+              <span id="demo-eval-value" class="eval-num">0.0</span>
+            </div>
+            <button id="reset-eval-board" class="btn-small">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p>But material isn't everything. A rook trapped in the corner is worth less than one controlling an open file. A pawn one square from promotion is nearly a queen. Position matters — a lot.</p>
+        <p>Modern engines evaluate hundreds of factors beyond material: king safety, pawn structure, piece mobility, control of key squares. In my project, I use a position complexity score that combines three sub-metrics:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>complexity.py : 73-88</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">def compute_complexity(engine, board, depth=12):
+    """
+    Position complexity score in [0, 1].
+    Higher = harder for humans to navigate correctly.
+    """
+    fen = board.fen()
+    if fen in _cache:
+        return _cache[fen]
+
+    spread = _eval_spread(engine, board, depth)
+    tension = _tactical_tension(board)
+    imbalance = _material_imbalance(board)
+
+    score = 0.5 * spread + 0.3 * tension + 0.2 * imbalance
+    _cache[fen] = round(score, 4)
+    return _cache[fen]</code></pre>
+      </div>
+
+      <div class="prose">
+        <p>The <strong>eval spread</strong> checks how many "reasonable" moves exist — narrow spread means a hard decision. <strong>Tactical tension</strong> counts hanging pieces and pins. <strong>Material imbalance</strong> measures how far we are from the starting position. This complexity score becomes important later when deciding how to play against different opponent types.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 3: MINIMAX ===== -->
+  <section id="sec-minimax" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 3</span>
+      <h2>Minimax: Looking Ahead</h2>
+      <div class="prose">
+        <p>Knowing how to evaluate a position is only half the battle. Chess engines don't just evaluate the current position — they look ahead. Way ahead. The algorithm that makes this possible is called <strong>minimax</strong>.</p>
+        <p>The idea is intuitive: I want to maximize my evaluation, and my opponent wants to minimize it. So at each level of the game tree, we alternate between picking the move with the highest score (my turn) and the move with the lowest score (opponent's turn).</p>
+        <p>The problem? Branching factor. In an average chess position there are about 35 legal moves. At depth 1, we evaluate 35 positions. At depth 2, that's 35 &times; 35 = 1,225. At depth 6, it's 35<sup>6</sup> &asymp; 1.8 billion positions. My laptop would melt.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-minimax-tree">
+        <div class="demo-label">Minimax Tree Visualization</div>
+        <p class="demo-description">Adjust the depth and watch minimax propagate values from the leaves up to the root. Green nodes maximize, red nodes minimize.</p>
+        <div class="demo-controls">
+          <label>Depth: <input type="range" id="depth-slider" min="1" max="4" value="3"><span id="depth-display">3</span></label>
+          <button id="btn-run-minimax" class="btn-small">Run Minimax</button>
+        </div>
+        <canvas id="minimax-canvas" width="800" height="400"></canvas>
+        <div id="minimax-stats" class="demo-stats"></div>
+      </div>
+
+      <div class="prose">
+        <p>The pseudocode is deceptively simple:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>pseudocode</span>
+          <span class="lang-tag">algorithm</span>
+        </div>
+        <pre><code class="language-python">def minimax(node, depth, maximizing):
+    if depth == 0 or node.is_terminal():
+        return evaluate(node)
+
+    if maximizing:
+        best = -infinity
+        for child in node.children:
+            val = minimax(child, depth - 1, False)
+            best = max(best, val)
+        return best
+    else:
+        best = +infinity
+        for child in node.children:
+            val = minimax(child, depth - 1, True)
+            best = min(best, val)
+        return best</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 4: ALPHA-BETA PRUNING ===== -->
+  <section id="sec-alphabeta" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 4</span>
+      <h2>Alpha-Beta Pruning</h2>
+      <div class="prose">
+        <p>Minimax works, but it's way too slow for real chess. Enter <strong>alpha-beta pruning</strong> — the single most important optimization in game-tree search.</p>
+        <p>The core insight: if I already know I can guarantee a score of +2 from a previous branch, and I start exploring a new branch where my opponent can force a score of +1, I can stop immediately. That branch is already worse than what I have. Why prove it's even worse?</p>
+        <p>Alpha is the best score the maximizing player can guarantee. Beta is the best score the minimizing player can guarantee. Whenever alpha &ge; beta, we prune — cut off the branch. In practice, this reduces the effective branching factor from ~35 to ~6, turning an impossible search into a tractable one.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-alphabeta-tree">
+        <div class="demo-label">Alpha-Beta Pruning</div>
+        <p class="demo-description">Watch the same tree searched with alpha-beta. Greyed-out branches were pruned — never explored. Compare the node count to pure minimax.</p>
+        <div class="demo-controls">
+          <label>Depth: <input type="range" id="ab-depth-slider" min="1" max="4" value="3"><span id="ab-depth-display">3</span></label>
+          <button id="btn-run-alphabeta" class="btn-small">Run Alpha-Beta</button>
+          <button id="btn-compare" class="btn-small btn-outline">Compare to Minimax</button>
+        </div>
+        <canvas id="alphabeta-canvas" width="800" height="400"></canvas>
+        <div id="ab-stats" class="demo-stats"></div>
+      </div>
+
+      <div class="prose">
+        <p>With good move ordering (trying the most promising moves first), alpha-beta can prune over 90% of the tree. Stockfish uses this as its foundation, layered with dozens of additional optimizations — null move pruning, late move reductions, aspiration windows — but alpha-beta is the backbone.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 5: NNUE ===== -->
+  <section id="sec-nnue" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 5</span>
+      <h2>NNUE: The Neural Revolution</h2>
+      <div class="prose">
+        <p>For decades, chess engines used handcrafted evaluation functions — hundreds of if-then rules coded by programmers. Piece-square tables, king safety heuristics, pawn structure bonuses.</p>
+        <p>Then in 2020, everything changed. Stockfish adopted <strong>NNUE</strong> (Efficiently Updatable Neural Network), and its playing strength jumped by roughly 80 Elo points overnight.</p>
+        <p>NNUE is a small neural network — just a few megabytes — that replaces the entire handcrafted evaluation function. It takes the board state as input (which piece is on which square) and outputs a single number: the evaluation. The key insight: the network can be <em>incrementally updated</em> as pieces move, making it fast enough for millions of evaluations per second.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-nnue">
+        <div class="demo-label">Inside the NNUE Architecture</div>
+        <p class="demo-description">768 inputs (12 piece types &times; 64 squares) &rarr; 256 &rarr; 256 &rarr; 1 output. Hover over input nodes to see connections light up.</p>
+        <div id="nnue-diagram"></div>
+      </div>
+
+      <div class="comparison-table">
+        <table>
+          <thead><tr><th></th><th>Stockfish 11 (Classic)</th><th>Stockfish 12+ (NNUE)</th></tr></thead>
+          <tbody>
+            <tr><td>Evaluation</td><td>Handcrafted heuristics</td><td>Neural network</td></tr>
+            <tr><td>CCRL Rating</td><td>~3500</td><td>~3600+</td></tr>
+            <tr><td>Eval Speed</td><td>Very fast</td><td>Fast (incremental updates)</td></tr>
+            <tr><td>Positional Understanding</td><td>Good (human-designed)</td><td>Excellent (learned)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="prose">
+        <p>NNUE made engines incredibly strong at finding the objectively best move. But that raises an interesting question: <em>best for what?</em> Best against a perfect opponent? Or best against the specific, imperfect human sitting across the board?</p>
+        <p>That question is the foundation of my project.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 6: OPPONENT MODELING ===== -->
+  <section id="sec-opponent-modeling" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 6</span>
+      <h2>Opponent Modeling</h2>
+      <div class="prose">
+        <p>This is where my project begins. The core idea: if I can profile how a specific opponent plays — their tendencies, their habits, their weaknesses — I can tune the engine to exploit those patterns.</p>
+        <p>I started by asking: what measurable features distinguish one player's style from another? After studying games from players with very different styles, I settled on eight behavioral features, each extracted from a player's game history:</p>
+      </div>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <span class="feature-name">Material Greed</span>
+          <span class="feature-formula">captures / total_moves</span>
+          <span class="feature-desc">How often does the player capture pieces?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Sacrifice Rate</span>
+          <span class="feature-formula">material_losses / total_moves</span>
+          <span class="feature-desc">How often do they voluntarily give up material?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Piece Activity</span>
+          <span class="feature-formula">avg_piece_rank / 7.0</span>
+          <span class="feature-desc">Do they push pieces forward or keep them back?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">King Pressure</span>
+          <span class="feature-formula">king_zone_moves / total</span>
+          <span class="feature-desc">How often do they target the opponent's king?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Center Control</span>
+          <span class="feature-formula">center_moves / total</span>
+          <span class="feature-desc">How much do they contest d4, d5, e4, e5?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Pawn Storm</span>
+          <span class="feature-formula">kingside_pushes / total</span>
+          <span class="feature-desc">Do they advance kingside pawns aggressively?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Trade When Ahead</span>
+          <span class="feature-formula">captures_ahead / total_captures</span>
+          <span class="feature-desc">When winning, do they simplify by exchanging?</span>
+        </div>
+        <div class="feature-card">
+          <span class="feature-name">Complexity Pref.</span>
+          <span class="feature-formula">sharp_positions / total</span>
+          <span class="feature-desc">Do they steer toward complex or simple positions?</span>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p>The profiler parses every game a player has played, tracking these metrics move by move:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>profiler.py : 71-76</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">def extract_features(pgn_text: str, player_name: str, quick: bool = False) -> dict:
+    """
+    Parse PGN and compute behavioral features for a specific player.
+    quick=True skips engine analysis and uses heuristic estimates instead.
+    """
+    games = _parse_games(pgn_text, player_name)</code></pre>
+      </div>
+
+      <div class="prose">
+        <p>And here's the final feature vector — eight numbers that characterize a playing style:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>profiler.py : 234-243</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">raw = {
+    "material_greed": total_captures / total_moves,
+    "sacrifice_rate": sacrifice_rate,
+    "avg_piece_advancement": advancement_sum / total_moves / 7.0,
+    "king_pressure_index": king_pressure_moves / total_moves,
+    "center_control": center_moves / total_moves,
+    "pawn_storm_frequency": pawn_storm_moves / total_moves,
+    "trade_when_ahead": trade_when_ahead,
+    "complexity_preference": complexity_pref,
+}</code></pre>
+      </div>
+
+      <div class="prose">
+        <p>Eight numbers to reduce an entire game history. The next question: how do I turn those numbers into a strategy?</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 7: THE FIVE ARCHETYPES ===== -->
+  <section id="sec-archetypes" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 7</span>
+      <h2>The Five Archetypes</h2>
+      <div class="prose">
+        <p>With these features in hand, I needed a way to categorize players into distinct styles. I settled on five archetypes, each inspired by legendary chess players whose games epitomize that style.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-archetype-cards">
+        <div class="demo-label">Archetype Gallery</div>
+        <p class="demo-description">Click an archetype to see its behavioral signature — the centroid values used for classification.</p>
+        <div class="archetype-cards" id="archetype-cards-container"></div>
+      </div>
+
+      <div class="prose">
+        <p>Classification is straightforward: compute the Euclidean distance from a player's feature vector to each archetype's centroid, and assign them to the nearest one. No machine learning, no black boxes — just geometry in eight dimensions.</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>profiler.py : 254-264</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">def classify(features: dict) -> dict:
+    """Classify feature vector into nearest archetype by Euclidean distance."""
+    distances = {}
+    for arch, centroid in CENTROIDS.items():
+        dist_sq = 0.0
+        for feat, val in centroid.items():
+            player_val = features.get(feat, 0.5)
+            dist_sq += (player_val - val) ** 2
+        distances[arch] = round(math.sqrt(dist_sq), 4)
+
+    best = min(distances, key=distances.get)</code></pre>
+      </div>
+
+      <div class="interactive-demo" id="demo-classifier">
+        <div class="demo-label">Find Your Archetype</div>
+        <p class="demo-description">Adjust the sliders to describe your playing style. The classifier runs the same Euclidean distance formula in real-time.</p>
+        <div id="classifier-sliders"></div>
+        <div id="classifier-result"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 8: COUNTER-STRATEGY ===== -->
+  <section id="sec-counter" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 8</span>
+      <h2>Counter-Strategy Design</h2>
+      <div class="prose">
+        <p>Now comes the heart of the project: once I know what kind of player I'm facing, how do I exploit their tendencies?</p>
+        <p>The answer lies in <strong>MultiPV</strong> (multiple principal variations). Instead of asking Stockfish for just the single best move, I ask for the top 3. Then I pick the one that best counters the opponent's style — as long as it's within a tolerable eval range of the top move.</p>
+      </div>
+
+      <div class="counter-table">
+        <table>
+          <thead><tr><th>Opponent Style</th><th>Counter Strategy</th><th>Move Selection Logic</th></tr></thead>
+          <tbody>
+            <tr><td><span class="arch-badge arch-aggressive">Aggressive</span></td><td>Play solid, absorb attack</td><td>Prefer quiet moves within tolerance</td></tr>
+            <tr><td><span class="arch-badge arch-materialistic">Materialistic</span></td><td>Offer poisoned material</td><td>Find sacrifices where eval stays close</td></tr>
+            <tr><td><span class="arch-badge arch-positional">Positional</span></td><td>Inject chaos</td><td>Prefer aggressive, attacking moves</td></tr>
+            <tr><td><span class="arch-badge arch-tactical">Tactical</span></td><td>Simplify</td><td>Force trades to reduce complexity</td></tr>
+            <tr><td><span class="arch-badge arch-passive">Passive</span></td><td>Maximum pressure</td><td>Open position with captures and breaks</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="prose">
+        <p>Each archetype has a behavioral bias controlling how aggressively the engine deviates from the top move:</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>archetypes.py : 44-50</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">COUNTER_BEHAVIOR = {
+    Archetype.AGGRESSIVE: {"aggression": -0.5, "sacrifice_tolerance": 30},
+    Archetype.MATERIALISTIC: {"aggression": 0.6, "sacrifice_tolerance": 80},
+    Archetype.POSITIONAL: {"aggression": 0.4, "sacrifice_tolerance": 50},
+    Archetype.TACTICAL: {"aggression": -0.3, "sacrifice_tolerance": 20},
+    Archetype.PASSIVE: {"aggression": 0.8, "sacrifice_tolerance": 60},
+}</code></pre>
+      </div>
+
+      <div class="interactive-demo" id="demo-multipv">
+        <div class="demo-label">MultiPV Decision Maker</div>
+        <p class="demo-description">See how the engine picks different moves against different archetypes. Select an opponent style to see which move gets recommended.</p>
+        <div class="demo-row">
+          <div id="multipv-board" style="width: 280px;"></div>
+          <div class="multipv-controls">
+            <label>Opponent:
+              <select id="multipv-archetype">
+                <option value="aggressive">Aggressive</option>
+                <option value="materialistic">Materialistic</option>
+                <option value="positional">Positional</option>
+                <option value="tactical">Tactical</option>
+                <option value="passive">Passive</option>
+              </select>
+            </label>
+            <div id="multipv-candidates"></div>
+            <div id="multipv-explanation" class="demo-explanation"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p>Here's the full move selection logic — the core of the adaptive engine:</p>
+      </div>
+
+      <div class="code-block expandable" id="counter-code-block">
+        <div class="code-header">
+          <span>engine.py : 161-227</span>
+          <span class="lang-tag">python</span>
+          <button class="btn-expand" onclick="this.closest('.expandable').classList.toggle('expanded')">Expand</button>
+        </div>
+        <pre><code class="language-python">def _select_counter_move(self, board, info_list):
+    """Among MultiPV candidates, pick the one that best exploits the opponent."""
+    if len(info_list) == 1:
+        return info_list[0]["pv"][0]
+
+    behavior = COUNTER_BEHAVIOR.get(self.archetype, {})
+    tolerance = behavior.get("sacrifice_tolerance", 50)
+
+    top_score = info_list[0]["score"].pov(board.turn)
+    top_cp = top_score.score(mate_score=10000)
+
+    # If already clearly winning, just play the best move
+    if top_cp > 200:
+        return info_list[0]["pv"][0]
+
+    if self.archetype == Archetype.MATERIALISTIC:
+        # Offer a sacrifice: material goes down but eval stays close
+        for entry in info_list[1:]:
+            mv = entry["pv"][0]
+            cp = entry["score"].pov(board.turn).score(mate_score=10000)
+            if abs(top_cp - cp) < tolerance:
+                mat_before = _material_on_board(board)
+                sim = board.copy()
+                sim.push(mv)
+                if mat_before - _material_on_board(sim) > 50:
+                    return mv
+
+    elif self.archetype == Archetype.PASSIVE:
+        # Open the position — captures, pawn breaks
+        for entry in info_list:
+            mv = entry["pv"][0]
+            cp = entry["score"].pov(board.turn).score(mate_score=10000)
+            if abs(top_cp - cp) < tolerance and board.is_capture(mv):
+                return mv
+
+    elif self.archetype == Archetype.TACTICAL:
+        # Simplify: force trades
+        for entry in info_list:
+            mv = entry["pv"][0]
+            cp = entry["score"].pov(board.turn).score(mate_score=10000)
+            if abs(top_cp - cp) < tolerance:
+                sim = board.copy()
+                sim.push(mv)
+                if _material_on_board(sim) < _material_on_board(board) - 200:
+                    return mv
+
+    elif self.archetype == Archetype.AGGRESSIVE:
+        # Solid, defensive positions
+        quiet = [e for e in info_list
+                 if _is_quiet_move(board, e["pv"][0])
+                 and abs(top_cp - e["score"].pov(board.turn)
+                         .score(mate_score=10000)) < tolerance]
+        if quiet:
+            return quiet[0]["pv"][0]
+
+    elif self.archetype == Archetype.POSITIONAL:
+        # Inject imbalances
+        for entry in info_list:
+            mv = entry["pv"][0]
+            cp = entry["score"].pov(board.turn).score(mate_score=10000)
+            agg = _aggression_score(board, mv)
+            if abs(top_cp - cp) < tolerance and agg > 1.0:
+                return mv
+
+    return info_list[0]["pv"][0]</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 9: SIMULATION (EXISTING DASHBOARD) ===== -->
+  <section id="sec-simulation" class="narrative-section simulation-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 9</span>
+      <h2>Proving It Works</h2>
+      <div class="prose">
+        <p>Theory is useless without proof. I built a simulation framework that pits the adaptive engine against proxy opponents — Stockfish instances configured to <em>behave like</em> each archetype. For each matchup, it plays games in two conditions:</p>
+        <ol>
+          <li><strong>Adaptive mode</strong> — the engine knows the opponent's archetype and adjusts</li>
+          <li><strong>Baseline mode</strong> — default Stockfish with no adaptation</li>
+        </ol>
+        <p>The delta between these two conditions measures the value of adaptation. Try it yourself below, or <a href="/dashboard" class="inline-link">open the full dashboard</a> in a separate page.</p>
+      </div>
+
+      <!-- EXISTING DASHBOARD -->
+      <div id="dashboard-embed">
+        <section id="controls">
+          <div class="control-group">
+            <label>PGN File</label>
+            <input type="file" id="pgn-file" accept=".pgn">
+            <input type="text" id="player-name" placeholder="Player name">
+            <button id="btn-profile" disabled>Analyze</button>
+          </div>
+          <div class="control-group">
+            <label>Simulation</label>
+            <select id="sim-archetype">
+              <option value="">All archetypes</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="materialistic">Materialistic</option>
+              <option value="positional">Positional</option>
+              <option value="tactical">Tactical</option>
+              <option value="passive">Passive</option>
+            </select>
+            <input type="number" id="sim-games" value="5" min="2" max="50">
+            <button id="btn-simulate">Run Simulation</button>
+            <button id="btn-demo" class="btn-demo">Demo Mode</button>
+          </div>
+        </section>
+
+        <div class="grid-2col">
+          <section id="profile-panel" class="panel">
+            <h2>Opponent Profile</h2>
+            <div id="profile-empty" class="empty-state">Upload a PGN to profile a player</div>
+            <div id="profile-content" class="hidden">
+              <div class="archetype-badge" id="archetype-label"></div>
+              <div class="profile-meta" id="profile-meta"></div>
+              <canvas id="radar-chart" width="320" height="320"></canvas>
+              <table id="feature-table">
+                <thead><tr><th>Feature</th><th>Value</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="game-panel" class="panel">
+            <h2>Live Game <span id="game-label" class="muted"></span></h2>
+            <div id="game-empty" class="empty-state">Run a simulation to watch games live</div>
+            <div id="game-content" class="hidden">
+              <div id="board-wrapper">
+                <div id="board" style="width: 360px;"></div>
+              </div>
+              <div id="game-info">
+                <div class="info-row">
+                  <span class="label">Eval</span>
+                  <div id="eval-bar"><div id="eval-fill"></div><span id="eval-text">0.0</span></div>
+                </div>
+                <div class="info-row">
+                  <span class="label">Phase</span>
+                  <span id="phase-text">&mdash;</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Move</span>
+                  <span id="move-counter">0</span>
+                </div>
+                <div id="move-list"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section id="results-panel" class="panel full-width">
+          <h2>Simulation Results</h2>
+          <div id="results-empty" class="empty-state">No results yet</div>
+          <div id="results-content" class="hidden">
+            <div id="progress-bar-container" class="hidden">
+              <div id="progress-bar"><div id="progress-fill"></div></div>
+              <span id="progress-text"></span>
+            </div>
+            <div class="results-grid">
+              <div class="chart-container"><canvas id="results-chart" height="300"></canvas></div>
+              <div>
+                <table id="results-table">
+                  <thead><tr><th>Archetype</th><th>Adaptive Score</th><th>Baseline Score</th><th>Delta</th><th>Est. Elo Diff</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+                <div id="summary-text"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="prose" style="margin-top: 48px;">
+        <p>The simulation produces a clear signal: does the adaptive engine score higher than baseline? Elo difference is estimated from the score using the standard formula:</p>
+        <div id="elo-formula" class="formula-block"></div>
+        <p>where <em>S</em> is the score — wins count as 1, draws as 0.5, losses as 0, divided by total games. A score of 0.6 corresponds to roughly +72 Elo.</p>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span>simulator.py : 51-58</span>
+          <span class="lang-tag">python</span>
+        </div>
+        <pre><code class="language-python">@property
+def elo_diff(self) -> float:
+    """Estimate Elo difference from score."""
+    s = self.score
+    if s <= 0.0:
+        return -400.0
+    if s >= 1.0:
+        return 400.0
+    return -400.0 * math.log10(1.0 / s - 1.0)</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 10: CONCLUSION ===== -->
+  <section id="sec-conclusion" class="narrative-section">
+    <div class="section-inner">
+      <span class="section-label">Chapter 10</span>
+      <h2>The Full Picture</h2>
+      <div class="prose">
+        <p>Let me step back and show how all the pieces fit together. The system is a pipeline: games go in, an adapted strategy comes out.</p>
+      </div>
+
+      <div class="interactive-demo" id="demo-architecture">
+        <div class="demo-label">System Architecture</div>
+        <p class="demo-description">Hover over any component to see its role. Click to jump to the relevant section.</p>
+        <div class="arch-flow" id="arch-flow">
+          <div class="arch-node" data-section="sec-opponent-modeling" data-tooltip="Parse PGN game files and extract 8 behavioral features per move">
+            <div class="arch-icon">&#9813;</div>
+            <span>PGN Input</span>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node" data-section="sec-opponent-modeling" data-tooltip="profiler.py — extract_features() computes greed, sacrifice rate, king pressure, etc.">
+            <div class="arch-icon">&#9881;</div>
+            <span>Profiler</span>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node" data-section="sec-archetypes" data-tooltip="Euclidean distance to 5 archetype centroids — nearest centroid wins">
+            <div class="arch-icon">&#9733;</div>
+            <span>Classify</span>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node" data-section="sec-counter" data-tooltip="COUNTER_BEHAVIOR maps archetype to aggression bias + sacrifice tolerance">
+            <div class="arch-icon">&#9876;</div>
+            <span>Counter</span>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node" data-section="sec-counter" data-tooltip="engine.py — MultiPV=3, _select_counter_move() picks the best exploit">
+            <div class="arch-icon">&#9816;</div>
+            <span>Engine</span>
+          </div>
+          <div class="arch-arrow">&rarr;</div>
+          <div class="arch-node" data-section="sec-simulation" data-tooltip="simulator.py — N games, adaptive vs baseline, statistical comparison">
+            <div class="arch-icon">&#9823;</div>
+            <span>Simulate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="prose">
+        <p>The entire system runs locally — no cloud, no API keys, just Python and Stockfish. The backend is FastAPI with WebSocket for live game streaming. The frontend is vanilla JS with Chart.js and chessboard.js. No build step.</p>
+
+        <h3>What I Learned</h3>
+        <p>Building this taught me that the "best" move in chess depends on context. Against a perfect opponent, the objectively best move is always correct. But against a human with known tendencies, a slightly suboptimal move that exploits their weakness can be more effective.</p>
+        <p>The gap between "theoretically best" and "practically best" is where adaptation lives. And that gap is measurable.</p>
+
+        <h3>Future Directions</h3>
+        <ul>
+          <li><strong>Live adaptation</strong> — profile the opponent from the current game in real-time</li>
+          <li><strong>Opening book selection</strong> — choose openings that steer toward uncomfortable positions</li>
+          <li><strong>Continuous archetypes</strong> — move from 5 fixed categories to a continuous style space</li>
+          <li><strong>Online integration</strong> — pull games from Lichess/Chess.com APIs automatically</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>PDSO Research Framework — Built with Stockfish, python-chess, FastAPI</p>
+  </footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="/interactive.js"></script>
+  <script src="/app.js"></script>
+  <script src="/narrative.js"></script>
+</body>
+</html>
