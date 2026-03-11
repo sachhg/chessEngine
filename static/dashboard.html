@@ -18,79 +18,164 @@
     </header>
 
     <main>
-        <!-- Controls -->
-        <section id="controls">
-            <div class="control-group">
-                <label for="pgn-file">Upload PGN</label>
-                <input type="file" id="pgn-file" accept=".pgn">
-                <input type="text" id="player-name" placeholder="Player name (e.g. Tal)">
-                <button id="btn-profile" disabled>Analyze</button>
-            </div>
-            <div class="control-group">
-                <label>Simulation</label>
-                <select id="sim-archetype">
-                    <option value="">All archetypes</option>
-                    <option value="aggressive">Aggressive</option>
-                    <option value="materialistic">Materialistic</option>
-                    <option value="positional">Positional</option>
-                    <option value="tactical">Tactical</option>
-                    <option value="passive">Passive</option>
-                </select>
-                <input type="number" id="sim-games" value="5" min="2" max="50" title="Games per matchup">
-                <button id="btn-simulate">Run Simulation</button>
-                <button id="btn-demo">Demo Mode</button>
-            </div>
+        <!-- Preset game banner — always visible once loaded -->
+        <section id="preset-banner" class="hidden">
+            <h3 class="banner-title">Replay a Simulation</h3>
+            <div id="preset-list" class="preset-list-horizontal"></div>
         </section>
 
-        <!-- Two-column layout -->
-        <div class="grid-2col">
-            <!-- Left: Profile -->
-            <section id="profile-panel" class="panel">
-                <h2>Opponent Profile</h2>
-                <div id="profile-empty" class="empty-state">
-                    Upload a PGN file or load demo results
-                </div>
-                <div id="profile-content" class="hidden">
-                    <div class="archetype-badge" id="archetype-label"></div>
-                    <div class="profile-meta" id="profile-meta"></div>
-                    <canvas id="radar-chart" width="320" height="320"></canvas>
-                    <table id="feature-table">
-                        <thead><tr><th>Feature</th><th>Value</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </section>
+        <!-- Main dashboard grid: sidebar + center stage -->
+        <div class="dashboard-grid">
 
-            <!-- Right: Live game -->
-            <section id="game-panel" class="panel">
-                <h2>Live Game <span id="game-label" class="muted"></span></h2>
-                <div id="game-empty" class="empty-state">
-                    Run a simulation to watch games live
-                </div>
-                <div id="game-content" class="hidden">
-                    <div id="board-wrapper">
-                        <div id="board" style="width: 360px;"></div>
+            <!-- LEFT SIDEBAR: Controls + Profile -->
+            <aside id="sidebar">
+                <details id="upload-accordion" class="sidebar-section">
+                    <summary>Upload PGN</summary>
+                    <div class="sidebar-body">
+                        <input type="file" id="pgn-file" accept=".pgn">
+                        <input type="text" id="player-name" placeholder="Player name (e.g. Tal)">
+                        <button id="btn-profile" disabled>Analyze</button>
                     </div>
-                    <div id="game-info">
-                        <div class="info-row">
-                            <span class="label">Eval</span>
-                            <div id="eval-bar">
-                                <div id="eval-fill"></div>
-                                <span id="eval-text">0.0</span>
+                </details>
+
+                <details id="sim-accordion" class="sidebar-section">
+                    <summary>Live Simulation</summary>
+                    <div class="sidebar-body">
+                        <select id="sim-archetype">
+                            <option value="">All archetypes</option>
+                            <option value="aggressive">Aggressive</option>
+                            <option value="materialistic">Materialistic</option>
+                            <option value="positional">Positional</option>
+                            <option value="tactical">Tactical</option>
+                            <option value="passive">Passive</option>
+                        </select>
+                        <input type="number" id="sim-games" value="5" min="2" max="50" title="Games per matchup">
+                        <button id="btn-simulate">Run Simulation</button>
+                        <button id="btn-demo">Demo Mode</button>
+                    </div>
+                </details>
+
+                <section id="profile-panel" class="sidebar-panel">
+                    <h3 class="sidebar-panel-title">Opponent Profile</h3>
+                    <div id="profile-empty" class="empty-state-small">
+                        Upload a PGN to profile a player
+                    </div>
+                    <div id="profile-content" class="hidden">
+                        <div class="archetype-badge" id="archetype-label"></div>
+                        <div class="profile-meta" id="profile-meta"></div>
+                        <canvas id="radar-chart" width="220" height="220"></canvas>
+                        <table id="feature-table">
+                            <thead><tr><th>Feature</th><th>Value</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- CENTER STAGE: Board + Metrics -->
+            <section id="center-stage">
+                <section id="game-panel">
+                    <div id="game-empty" class="empty-state-center">
+                        Select a game above to start replaying
+                    </div>
+
+                    <!-- Hidden preset picker (legacy, unused in new layout) -->
+                    <div id="preset-picker" class="hidden"></div>
+
+                    <div id="game-content" class="hidden">
+                        <div id="game-header">
+                            <span id="game-label" class="game-title-label"></span>
+                        </div>
+
+                        <div class="board-and-metrics">
+                            <!-- Left: Black features card -->
+                            <div id="black-features-card" class="feature-card hidden">
+                                <div class="feature-card-label">Black — <span id="black-archetype-label"></span></div>
+                                <div id="black-sliders" class="feature-sliders"></div>
+                                <div id="black-result" class="feature-result">
+                                    <div id="black-distances" class="distance-bars"></div>
+                                </div>
+                            </div>
+
+                            <!-- Center: Board + playback -->
+                            <div class="board-column">
+                                <div id="board-wrapper">
+                                    <div id="board" style="width: 480px;"></div>
+                                </div>
+                                <div id="playback-controls" class="playback-controls hidden">
+                                    <div class="playback-buttons">
+                                        <button id="btn-start" class="pb-btn" title="Go to start">&#x23EE;</button>
+                                        <button id="btn-back" class="pb-btn" title="Back one move">&#x23F4;</button>
+                                        <button id="btn-play" class="pb-btn pb-btn-play" title="Play / Pause">&#x25B6;</button>
+                                        <button id="btn-forward" class="pb-btn" title="Forward one move">&#x23F5;</button>
+                                        <button id="btn-end" class="pb-btn" title="Go to end">&#x23ED;</button>
+                                    </div>
+                                    <div class="speed-control">
+                                        <span class="speed-label">Speed</span>
+                                        <input type="range" id="speed-slider" min="1" max="10" value="5" class="speed-slider">
+                                        <span id="speed-display" class="speed-val">1.0x</span>
+                                    </div>
+                                    <div class="playback-progress">
+                                        <input type="range" id="move-scrubber" min="0" max="0" value="0" class="move-scrubber">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: White features card -->
+                            <div id="white-features-card" class="feature-card hidden">
+                                <div class="feature-card-label">White — <span id="white-archetype-label"></span></div>
+                                <div id="white-sliders" class="feature-sliders"></div>
+                                <div id="white-result" class="feature-result">
+                                    <div id="white-distances" class="distance-bars"></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="info-row">
-                            <span class="label">Phase</span>
-                            <span id="phase-text">&mdash;</span>
+
+                        <!-- Metrics row below the board area -->
+                        <div id="live-metrics" class="metrics-row">
+                            <div class="metric-card">
+                                <div class="metric-label">Opponent</div>
+                                <span id="opponent-archetype" class="metric-value archetype-badge-small">&mdash;</span>
+                            </div>
+
+                            <div class="metric-card">
+                                <div class="metric-label">Evaluation</div>
+                                <div id="eval-bar">
+                                    <div id="eval-fill"></div>
+                                    <span id="eval-text">0.0</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card metric-card-row">
+                                <div class="metric-card-half">
+                                    <div class="metric-label">Phase</div>
+                                    <span id="phase-text" class="metric-value">&mdash;</span>
+                                </div>
+                                <div class="metric-card-half">
+                                    <div class="metric-label">Move</div>
+                                    <span id="move-counter" class="metric-value">0</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card">
+                                <div class="metric-label">Side</div>
+                                <span id="side-text" class="metric-value">&mdash;</span>
+                            </div>
+
+                            <div class="metric-card metric-card-wide">
+                                <div class="metric-label">Eval History</div>
+                                <canvas id="eval-sparkline" height="60"></canvas>
+                            </div>
+
+                            <div class="metric-card metric-card-wide metric-card-moves">
+                                <div class="metric-label">Moves</div>
+                                <div id="move-list"></div>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="label">Move</span>
-                            <span id="move-counter">0</span>
-                        </div>
-                        <div id="move-list"></div>
                     </div>
-                </div>
+                </section>
             </section>
+
         </div>
 
         <!-- Results -->

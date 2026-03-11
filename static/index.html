@@ -588,6 +588,13 @@
           <section id="game-panel" class="panel">
             <h2>Live Game <span id="game-label" class="muted"></span></h2>
             <div id="game-empty" class="empty-state">Run a simulation to watch games live</div>
+
+            <!-- Preset game picker -->
+            <div id="preset-picker" class="hidden">
+              <h3 class="picker-title">Choose a Game to Replay</h3>
+              <div id="preset-list" class="preset-list"></div>
+            </div>
+
             <div id="game-content" class="hidden">
               <div id="board-wrapper">
                 <div id="board" style="width: 360px;"></div>
@@ -604,6 +611,24 @@
                 <div class="info-row">
                   <span class="label">Move</span>
                   <span id="move-counter">0</span>
+                </div>
+                <!-- Playback controls -->
+                <div id="playback-controls" class="playback-controls hidden">
+                  <div class="playback-buttons">
+                    <button id="btn-start" class="pb-btn" title="Go to start">&#x23EE;</button>
+                    <button id="btn-back" class="pb-btn" title="Back one move">&#x23F4;</button>
+                    <button id="btn-play" class="pb-btn pb-btn-play" title="Play / Pause">&#x25B6;</button>
+                    <button id="btn-forward" class="pb-btn" title="Forward one move">&#x23F5;</button>
+                    <button id="btn-end" class="pb-btn" title="Go to end">&#x23ED;</button>
+                  </div>
+                  <div class="speed-control">
+                    <span class="speed-label">Speed</span>
+                    <input type="range" id="speed-slider" min="1" max="10" value="5" class="speed-slider">
+                    <span id="speed-display" class="speed-val">1.0x</span>
+                  </div>
+                  <div class="playback-progress">
+                    <input type="range" id="move-scrubber" min="0" max="0" value="0" class="move-scrubber">
+                  </div>
                 </div>
                 <div id="move-list"></div>
               </div>

@@ -1400,3 +1400,167 @@ footer {
     .arch-flow { flex-wrap: wrap; gap: 12px; }
     .arch-arrow { display: none; }
 }
+
+/* ========================================
+   Preset Picker
+   ======================================== */
+
+.picker-title {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+.preset-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.preset-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.preset-card:hover {
+    border-color: var(--accent);
+    background: rgba(233, 69, 96, 0.08);
+    transform: translateY(-1px);
+}
+
+.preset-archetype {
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: capitalize;
+    color: var(--text);
+}
+
+.preset-meta {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.preset-result {
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.preset-win { color: var(--accent-green); }
+.preset-draw { color: var(--accent-yellow); }
+.preset-loss { color: var(--accent); }
+
+/* ========================================
+   Playback Controls
+   ======================================== */
+
+.playback-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+}
+
+.playback-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.pb-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1;
+}
+
+.pb-btn:hover:not(:disabled) {
+    background: rgba(233, 69, 96, 0.15);
+    border-color: var(--accent);
+}
+
+.pb-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.pb-btn-play {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.pb-btn-play:hover:not(:disabled) {
+    background: #d13350;
+    border-color: #d13350;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.speed-label {
+    min-width: 36px;
+    text-align: right;
+}
+
+.speed-val {
+    min-width: 36px;
+}
+
+.speed-slider {
+    width: 100px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.playback-progress {
+    padding: 0 4px;
+}
+
+.move-scrubber {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+    height: 6px;
+}
+
+/* Responsive preset grid */
+@media (max-width: 500px) {
+    .preset-list {
+        grid-template-columns: 1fr;
+    }
+}
