@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDSO — Persona-Driven Search Optimization</title>
+  <title>PDSO: Persona-Driven Search Optimization</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,7 +48,7 @@
         <p>But humans are not objective. We have habits, tendencies, blind spots. A player who always grabs material will fall for a poisoned pawn. A player who avoids complications will crumble under sustained pressure. A player who loves sharp tactical battles will struggle in a dull endgame with no targets.</p>
         <p>What if an engine could learn those patterns and turn them against you?</p>
         <p>That's the question behind PDSO. Instead of playing the single "best" move in every position, the engine profiles its opponent's style and picks moves that specifically exploit their weaknesses. Against an aggressive player, it plays solid and lets them overextend. Against a passive player, it cranks up the pressure. Against someone who grabs every pawn, it offers poisoned material.</p>
-        <p>Before I could build that, though, I needed to understand how chess engines actually work — from the ground up.</p>
+        <p>Before I could build that, though, I needed to understand how chess engines actually work, starting from the ground up.</p>
       </div>
     </div>
   </section>
@@ -59,7 +59,7 @@
       <span class="section-label">Chapter 2</span>
       <h2>How Chess Engines Think</h2>
       <div class="prose">
-        <p>At the most basic level, a chess engine needs to answer one question: <em>how good is this position?</em> The simplest approach is material counting. Every piece has a standard value, measured in "centipawns" — hundredths of a pawn:</p>
+        <p>At the most basic level, a chess engine needs to answer one question: <em>how good is this position?</em> The simplest approach is material counting. Every piece has a standard value, measured in "centipawns" (hundredths of a pawn):</p>
       </div>
 
       <div class="code-block">
@@ -98,7 +98,7 @@
       </div>
 
       <div class="prose">
-        <p>But material isn't everything. A rook trapped in the corner is worth less than one controlling an open file. A pawn one square from promotion is nearly a queen. Position matters — a lot.</p>
+        <p>But material isn't everything. A rook trapped in the corner is worth less than one controlling an open file. A pawn one square from promotion is nearly a queen. Position matters, and it matters a lot.</p>
         <p>Modern engines evaluate hundreds of factors beyond material: king safety, pawn structure, piece mobility, control of key squares. In my project, I use a position complexity score that combines three sub-metrics:</p>
       </div>
 
@@ -126,7 +126,7 @@
       </div>
 
       <div class="prose">
-        <p>The <strong>eval spread</strong> checks how many "reasonable" moves exist — narrow spread means a hard decision. <strong>Tactical tension</strong> counts hanging pieces and pins. <strong>Material imbalance</strong> measures how far we are from the starting position. This complexity score becomes important later when deciding how to play against different opponent types.</p>
+        <p>The <strong>eval spread</strong> checks how many "reasonable" moves exist. A narrow spread means a hard decision. <strong>Tactical tension</strong> counts hanging pieces and pins. <strong>Material imbalance</strong> measures how far we are from the starting position. This complexity score becomes important later when deciding how to play against different opponent types.</p>
       </div>
     </div>
   </section>
@@ -137,7 +137,7 @@
       <span class="section-label">Chapter 3</span>
       <h2>Minimax: Looking Ahead</h2>
       <div class="prose">
-        <p>Knowing how to evaluate a position is only half the battle. Chess engines don't just evaluate the current position — they look ahead. Way ahead. The algorithm that makes this possible is called <strong>minimax</strong>.</p>
+        <p>Knowing how to evaluate a position is only half the battle. Chess engines don't just evaluate the current position. They look ahead. Way ahead. The algorithm that makes this possible is called <strong>minimax</strong>.</p>
         <p>The idea is intuitive: I want to maximize my evaluation, and my opponent wants to minimize it. So at each level of the game tree, we alternate between picking the move with the highest score (my turn) and the move with the lowest score (opponent's turn).</p>
         <p>The problem? Branching factor. In an average chess position there are about 35 legal moves. At depth 1, we evaluate 35 positions. At depth 2, that's 35 &times; 35 = 1,225. At depth 6, it's 35<sup>6</sup> &asymp; 1.8 billion positions. My laptop would melt.</p>
       </div>
@@ -188,14 +188,14 @@
       <span class="section-label">Chapter 4</span>
       <h2>Alpha-Beta Pruning</h2>
       <div class="prose">
-        <p>Minimax works, but it's way too slow for real chess. Enter <strong>alpha-beta pruning</strong> — the single most important optimization in game-tree search.</p>
+        <p>Minimax works, but it's way too slow for real chess. The fix is <strong>alpha-beta pruning</strong>, the single most important optimization in game-tree search.</p>
         <p>The core insight: if I already know I can guarantee a score of +2 from a previous branch, and I start exploring a new branch where my opponent can force a score of +1, I can stop immediately. That branch is already worse than what I have. Why prove it's even worse?</p>
-        <p>Alpha is the best score the maximizing player can guarantee. Beta is the best score the minimizing player can guarantee. Whenever alpha &ge; beta, we prune — cut off the branch. In practice, this reduces the effective branching factor from ~35 to ~6, turning an impossible search into a tractable one.</p>
+        <p>Alpha is the best score the maximizing player can guarantee. Beta is the best score the minimizing player can guarantee. Whenever alpha &ge; beta, we prune: cut off the branch entirely. In practice, this reduces the effective branching factor from ~35 to ~6, turning an impossible search into a tractable one.</p>
       </div>
 
       <div class="interactive-demo" id="demo-alphabeta-tree">
         <div class="demo-label">Alpha-Beta Pruning</div>
-        <p class="demo-description">Watch the same tree searched with alpha-beta. Greyed-out branches were pruned — never explored. Compare the node count to pure minimax.</p>
+        <p class="demo-description">Watch the same tree searched with alpha-beta. Greyed-out branches were pruned and never explored. Compare the node count to pure minimax.</p>
         <div class="demo-controls">
           <label>Depth: <input type="range" id="ab-depth-slider" min="1" max="4" value="3"><span id="ab-depth-display">3</span></label>
           <button id="btn-run-alphabeta" class="btn-small">Run Alpha-Beta</button>
@@ -206,7 +206,7 @@
       </div>
 
       <div class="prose">
-        <p>With good move ordering (trying the most promising moves first), alpha-beta can prune over 90% of the tree. Stockfish uses this as its foundation, layered with dozens of additional optimizations — null move pruning, late move reductions, aspiration windows — but alpha-beta is the backbone.</p>
+        <p>With good move ordering (trying the most promising moves first), alpha-beta can prune over 90% of the tree. Stockfish uses this as its foundation, layered with dozens of additional optimizations like null move pruning, late move reductions, and aspiration windows. But alpha-beta is the backbone.</p>
       </div>
     </div>
   </section>
@@ -217,9 +217,9 @@
       <span class="section-label">Chapter 5</span>
       <h2>NNUE: The Neural Revolution</h2>
       <div class="prose">
-        <p>For decades, chess engines used handcrafted evaluation functions — hundreds of if-then rules coded by programmers. Piece-square tables, king safety heuristics, pawn structure bonuses.</p>
+        <p>For decades, chess engines used handcrafted evaluation functions: hundreds of if-then rules coded by programmers. Piece-square tables, king safety heuristics, pawn structure bonuses.</p>
         <p>Then in 2020, everything changed. Stockfish adopted <strong>NNUE</strong> (Efficiently Updatable Neural Network), and its playing strength jumped by roughly 80 Elo points overnight.</p>
-        <p>NNUE is a small neural network — just a few megabytes — that replaces the entire handcrafted evaluation function. It takes the board state as input (which piece is on which square) and outputs a single number: the evaluation. The key insight: the network can be <em>incrementally updated</em> as pieces move, making it fast enough for millions of evaluations per second.</p>
+        <p>NNUE is a small neural network, just a few megabytes, that replaces the entire handcrafted evaluation function. It takes the board state as input (which piece is on which square) and outputs a single number: the evaluation. The key insight: the network can be <em>incrementally updated</em> as pieces move, making it fast enough for millions of evaluations per second.</p>
       </div>
 
       <div class="interactive-demo" id="demo-nnue">
@@ -253,7 +253,7 @@
       <span class="section-label">Chapter 6</span>
       <h2>Opponent Modeling</h2>
       <div class="prose">
-        <p>This is where my project begins. The core idea: if I can profile how a specific opponent plays — their tendencies, their habits, their weaknesses — I can tune the engine to exploit those patterns.</p>
+        <p>This is where my project begins. The core idea: if I can profile how a specific opponent plays (their tendencies, their habits, their weaknesses) I can tune the engine to exploit those patterns.</p>
         <p>I started by asking: what measurable features distinguish one player's style from another? After studying games from players with very different styles, I settled on eight behavioral features, each extracted from a player's game history:</p>
       </div>
 
@@ -318,7 +318,7 @@
       </div>
 
       <div class="prose">
-        <p>And here's the final feature vector — eight numbers that characterize a playing style:</p>
+        <p>And here's the final feature vector, eight numbers that characterize a playing style:</p>
       </div>
 
       <div class="code-block">
@@ -355,12 +355,12 @@
 
       <div class="interactive-demo" id="demo-archetype-cards">
         <div class="demo-label">Archetype Gallery</div>
-        <p class="demo-description">Click an archetype to see its behavioral signature — the centroid values used for classification.</p>
+        <p class="demo-description">Click an archetype to see its behavioral signature and the centroid values used for classification.</p>
         <div class="archetype-cards" id="archetype-cards-container"></div>
       </div>
 
       <div class="prose">
-        <p>Classification is straightforward: compute the Euclidean distance from a player's feature vector to each archetype's centroid, and assign them to the nearest one. No machine learning, no black boxes — just geometry in eight dimensions.</p>
+        <p>Classification is straightforward: compute the Euclidean distance from a player's feature vector to each archetype's centroid, and assign them to the nearest one. No machine learning, no black boxes. Just geometry in eight dimensions.</p>
       </div>
 
       <div class="code-block">
@@ -397,7 +397,7 @@
       <h2>Counter-Strategy Design</h2>
       <div class="prose">
         <p>Now comes the heart of the project: once I know what kind of player I'm facing, how do I exploit their tendencies?</p>
-        <p>The answer lies in <strong>MultiPV</strong> (multiple principal variations). Instead of asking Stockfish for just the single best move, I ask for the top 3. Then I pick the one that best counters the opponent's style — as long as it's within a tolerable eval range of the top move.</p>
+        <p>The answer lies in <strong>MultiPV</strong> (multiple principal variations). Instead of asking Stockfish for just the single best move, I ask for the top 3. Then I pick the one that best counters the opponent's style, as long as it's within a tolerable eval range of the top move.</p>
       </div>
 
       <div class="counter-table">
@@ -453,7 +453,7 @@
       </div>
 
       <div class="prose">
-        <p>Here's the full move selection logic — the core of the adaptive engine:</p>
+        <p>Here's the full move selection logic, the core of the adaptive engine:</p>
       </div>
 
       <div class="code-block expandable" id="counter-code-block">
@@ -490,7 +490,7 @@
                     return mv
 
     elif self.archetype == Archetype.PASSIVE:
-        # Open the position — captures, pawn breaks
+        # Open the position with captures and pawn breaks
         for entry in info_list:
             mv = entry["pv"][0]
             cp = entry["score"].pov(board.turn).score(mate_score=10000)
@@ -537,10 +537,10 @@
       <span class="section-label">Chapter 9</span>
       <h2>Proving It Works</h2>
       <div class="prose">
-        <p>Theory is useless without proof. I built a simulation framework that pits the adaptive engine against proxy opponents — Stockfish instances configured to <em>behave like</em> each archetype. For each matchup, it plays games in two conditions:</p>
+        <p>Theory is useless without proof. I built a simulation framework that pits the adaptive engine against proxy opponents: Stockfish instances configured to <em>behave like</em> each archetype. For each matchup, it plays games in two conditions:</p>
         <ol>
-          <li><strong>Adaptive mode</strong> — the engine knows the opponent's archetype and adjusts</li>
-          <li><strong>Baseline mode</strong> — default Stockfish with no adaptation</li>
+          <li><strong>Adaptive mode</strong>: the engine knows the opponent's archetype and adjusts</li>
+          <li><strong>Baseline mode</strong>: default Stockfish with no adaptation</li>
         </ol>
         <p>The delta between these two conditions measures the value of adaptation. Try it yourself below, or <a href="/dashboard" class="inline-link">open the full dashboard</a> in a separate page.</p>
       </div>
@@ -661,7 +661,7 @@
       <div class="prose" style="margin-top: 48px;">
         <p>The simulation produces a clear signal: does the adaptive engine score higher than baseline? Elo difference is estimated from the score using the standard formula:</p>
         <div id="elo-formula" class="formula-block"></div>
-        <p>where <em>S</em> is the score — wins count as 1, draws as 0.5, losses as 0, divided by total games. A score of 0.6 corresponds to roughly +72 Elo.</p>
+        <p>where <em>S</em> is the score (wins count as 1, draws as 0.5, losses as 0) divided by total games. A score of 0.6 corresponds to roughly +72 Elo.</p>
       </div>
 
       <div class="code-block">
@@ -700,12 +700,12 @@ def elo_diff(self) -> float:
             <span>PGN Input</span>
           </div>
           <div class="arch-arrow">&rarr;</div>
-          <div class="arch-node" data-section="sec-opponent-modeling" data-tooltip="profiler.py — extract_features() computes greed, sacrifice rate, king pressure, etc.">
+          <div class="arch-node" data-section="sec-opponent-modeling" data-tooltip="profiler.py: extract_features() computes greed, sacrifice rate, king pressure, etc.">
             <div class="arch-icon">&#9881;</div>
             <span>Profiler</span>
           </div>
           <div class="arch-arrow">&rarr;</div>
-          <div class="arch-node" data-section="sec-archetypes" data-tooltip="Euclidean distance to 5 archetype centroids — nearest centroid wins">
+          <div class="arch-node" data-section="sec-archetypes" data-tooltip="Euclidean distance to 5 archetype centroids (nearest centroid wins)">
             <div class="arch-icon">&#9733;</div>
             <span>Classify</span>
           </div>
@@ -715,12 +715,12 @@ def elo_diff(self) -> float:
             <span>Counter</span>
           </div>
           <div class="arch-arrow">&rarr;</div>
-          <div class="arch-node" data-section="sec-counter" data-tooltip="engine.py — MultiPV=3, _select_counter_move() picks the best exploit">
+          <div class="arch-node" data-section="sec-counter" data-tooltip="engine.py: MultiPV=3, _select_counter_move() picks the best exploit">
             <div class="arch-icon">&#9816;</div>
             <span>Engine</span>
           </div>
           <div class="arch-arrow">&rarr;</div>
-          <div class="arch-node" data-section="sec-simulation" data-tooltip="simulator.py — N games, adaptive vs baseline, statistical comparison">
+          <div class="arch-node" data-section="sec-simulation" data-tooltip="simulator.py: N games, adaptive vs baseline, statistical comparison">
             <div class="arch-icon">&#9823;</div>
             <span>Simulate</span>
           </div>
@@ -728,7 +728,7 @@ def elo_diff(self) -> float:
       </div>
 
       <div class="prose">
-        <p>The entire system runs locally — no cloud, no API keys, just Python and Stockfish. The backend is FastAPI with WebSocket for live game streaming. The frontend is vanilla JS with Chart.js and chessboard.js. No build step.</p>
+        <p>The entire system runs locally. No cloud, no API keys, just Python and Stockfish. The backend is FastAPI with WebSocket for live game streaming. The frontend is vanilla JS with Chart.js and chessboard.js. No build step.</p>
 
         <h3>What I Learned</h3>
         <p>Building this taught me that the "best" move in chess depends on context. Against a perfect opponent, the objectively best move is always correct. But against a human with known tendencies, a slightly suboptimal move that exploits their weakness can be more effective.</p>
@@ -736,17 +736,17 @@ def elo_diff(self) -> float:
 
         <h3>Future Directions</h3>
         <ul>
-          <li><strong>Live adaptation</strong> — profile the opponent from the current game in real-time</li>
-          <li><strong>Opening book selection</strong> — choose openings that steer toward uncomfortable positions</li>
-          <li><strong>Continuous archetypes</strong> — move from 5 fixed categories to a continuous style space</li>
-          <li><strong>Online integration</strong> — pull games from Lichess/Chess.com APIs automatically</li>
+          <li><strong>Live adaptation:</strong> profile the opponent from the current game in real-time</li>
+          <li><strong>Opening book selection:</strong> choose openings that steer toward uncomfortable positions</li>
+          <li><strong>Continuous archetypes:</strong> move from 5 fixed categories to a continuous style space</li>
+          <li><strong>Online integration:</strong> pull games from Lichess/Chess.com APIs automatically</li>
         </ul>
       </div>
     </div>
   </section>
 
   <footer>
-    <p>PDSO Research Framework — Built with Stockfish, python-chess, FastAPI</p>
+    <p>PDSO Research Framework | Built with Stockfish, python-chess, FastAPI</p>
   </footer>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
